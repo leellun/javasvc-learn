@@ -19,6 +19,7 @@
         <module>svc-elasticsearch</module>
         <module>svc-kafka</module>
         <module>svc-rabbitmq</module>
+        <module>svc-rocketmq</module>
     </modules>
     <dependencyManagement>
         <dependencies>
