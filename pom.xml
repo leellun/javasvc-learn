@@ -20,6 +20,7 @@
         <module>svc-kafka</module>
         <module>svc-rabbitmq</module>
         <module>svc-rocketmq</module>
+        <module>svc-datastruct</module>
     </modules>
     <dependencyManagement>
         <dependencies>
