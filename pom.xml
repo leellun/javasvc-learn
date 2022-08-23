@@ -21,6 +21,7 @@
         <module>svc-rabbitmq</module>
         <module>svc-rocketmq</module>
         <module>svc-datastruct</module>
+        <module>svc-canal</module>
     </modules>
     <dependencyManagement>
         <dependencies>
