@@ -22,6 +22,7 @@
         <module>svc-rocketmq</module>
         <module>svc-datastruct</module>
         <module>svc-canal</module>
+        <module>boot-classloader</module>
     </modules>
     <dependencyManagement>
         <dependencies>
