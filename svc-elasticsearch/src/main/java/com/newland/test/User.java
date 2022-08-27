@@ -1,18 +1,9 @@
-package com.newland.bean;
+package com.newland.test;
 
 public class User {
     private String name;
     private String sex;
     private Integer age;
-
-    public User() {
-    }
-
-    public User(String name, String sex, Integer age) {
-        this.name = name;
-        this.sex = sex;
-        this.age = age;
-    }
 
     public String getName() {
         return name;

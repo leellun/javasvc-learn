@@ -1,294 +1,170 @@
 package com.newland;
 
-import org.apache.http.HttpHost;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.MatchQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
+import co.elastic.clients.elasticsearch._types.query_dsl.RangeQuery;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.SearchTemplateResponse;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.core.search.SourceConfig;
+import co.elastic.clients.elasticsearch.core.search.TotalHits;
+import co.elastic.clients.elasticsearch.core.search.TotalHitsRelation;
+import co.elastic.clients.json.JsonData;
+import com.newland.bean.User;
+import com.newland.utils.ElasticsearchClientUtils;
 import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.unit.Fuzziness;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.RangeQueryBuilder;
-import org.elasticsearch.index.query.TermsQueryBuilder;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
-import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
-import org.elasticsearch.search.sort.SortOrder;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.logging.Logger;
 
 public class ElasticSearchTest {
-    private RestHighLevelClient esClient;
+    Logger logger=Logger.getLogger(ElasticSearchTest.class.getName());
+    private ElasticsearchClient client= ElasticsearchClientUtils.getClient();
 
-    {
-        // 创建ES客户端
-        esClient = new RestHighLevelClient(RestClient.builder(new HttpHost("192.168.10.103", 9200, "http")));
-    }
 
     // 1. 查询索引中全部的数据
     @Test
     public void testSearchRequest() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-        request.source(new SearchSourceBuilder().query(QueryBuilders.matchAllQuery()));
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-        SearchHits hits = response.getHits();
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
+        String searchText = "bike";
 
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
+        SearchResponse<User> response = client.search(s -> s
+                        .index("users")
+                        .query(q -> q
+                                .match(t -> t
+                                        .field("name")
+                                        .query(searchText)
+                                )
+                        ),
+                User.class
+        );
+
+        TotalHits total = response.hits().total();
+        boolean isExactResult = total.relation() == TotalHitsRelation.Eq;
+
+        if (isExactResult) {
+            logger.info("There are " + total.value() + " results");
+        } else {
+            logger.info("There are more than " + total.value() + " results");
+        }
+
+        List<Hit<User>> hits = response.hits().hits();
+        for (Hit<User> hit: hits) {
+            User product = hit.source();
+            logger.info("Found product " + product.getName() + ", score " + hit.score());
         }
     }
 
     // 条件查询
     @Test
-    public void testTermQuery() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
+    public void testCombinationQuery() throws IOException {
+        String searchText = "bike";
+        double age = 27;
 
-        request.source(new SearchSourceBuilder().query(QueryBuilders.termQuery("age", 30)));
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
+        // 通过用户名查询
+        Query byName = MatchQuery.of(m -> m
+                .field("name")
+                .query(searchText)
+        )._toQuery();
 
-        SearchHits hits = response.getHits();
+        // 通过最大价格
+        Query byMaxPrice = RangeQuery.of(r -> r
+                .field("age")
+                .gte(JsonData.of(age))
+        )._toQuery();
 
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
+        // 组合查询
+        SearchResponse<User> response = client.search(s -> s
+                        .index("users")
+                        .query(q -> q
+                                .bool(b -> b
+                                        .must(byName)
+                                        .must(byMaxPrice)
+                                )
+                        ),
+                User.class
+        );
 
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
+        List<Hit<User>> hits = response.hits().hits();
+        for (Hit<User> hit: hits) {
+            User product = hit.source();
+            logger.info("Found product " + product.getName() + ", score " + hit.score());
         }
     }
 
+    /**
+     * 搜索模板是可以使用不同变量运行的存储搜索。搜索模板允许您在不修改应用程序代码的情况下更改搜索。
+     * 在运行模板搜索之前，首先必须创建模板。这是一个返回搜索请求主体的存储脚本，通常被定义为Mustache模板。这个存储的脚本可以在应用程序之外创建，也可以使用Java API客户端创建:
+     */
+    public void testTemplate() throws IOException {
+        // 创建一个script
+        client.putScript(r -> r
+                .id("query-script")
+                .script(s -> s
+                        .lang("mustache")
+                        .source("{\"query\":{\"match\":{\"{{field}}\":\"{{value}}\"}}}")
+                ));
+        // 要使用搜索模板，使用searchTemplate方法来引用脚本，并为其参数提供值:
+        SearchTemplateResponse<User> response = client.searchTemplate(r -> r
+                        .index("users")
+                        .id("query-script")
+                        .params("field", JsonData.of("name"))
+                        .params("value", JsonData.of("leellun")),
+                User.class
+        );
+
+        List<Hit<User>> hits = response.hits().hits();
+        for (Hit<User> hit: hits) {
+            User user = hit.source();
+            logger.info("Found product " + user.getName() + ", score " + hit.score());
+        }
+    }
     // 3. 分页查询
     @Test
     public void testPageQuery() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-
-        SearchSourceBuilder builder = new SearchSourceBuilder().query(QueryBuilders.matchAllQuery());
-        // (当前页码-1)*每页显示数据条数
-        builder.from(2);
-        builder.size(2);
-        request.source(builder);
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
-        }
     }
 
     // 4. 查询排序
     @Test
     public void testSortQuery() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-
-        SearchSourceBuilder builder = new SearchSourceBuilder().query(QueryBuilders.matchAllQuery());
-        //
-        builder.sort("age", SortOrder.DESC);
-
-        request.source(builder);
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
-        }
     }
 
     // 5. 过滤字段
     @Test
     public void testFetchQuery() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-
-        SearchSourceBuilder builder = new SearchSourceBuilder().query(QueryBuilders.matchAllQuery());
-        //
-        String[] excludes = {"age"};
-        String[] includes = {};
-        builder.fetchSource(includes, excludes);
-
-        request.source(builder);
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
-        }
     }
 
     // 6. 组合查询
     @Test
     public void testMultiQuery() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-
-        SearchSourceBuilder builder = new SearchSourceBuilder();
-        BoolQueryBuilder boolQueryBuilder = QueryBuilders.boolQuery();
-
-        //boolQueryBuilder.must(QueryBuilders.matchQuery("age", 30));
-        //boolQueryBuilder.must(QueryBuilders.matchQuery("sex", "男"));
-        //boolQueryBuilder.mustNot(QueryBuilders.matchQuery("sex", "男"));
-        boolQueryBuilder.should(QueryBuilders.matchQuery("age", 30));
-        boolQueryBuilder.should(QueryBuilders.matchQuery("age", 40));
-
-        builder.query(boolQueryBuilder);
-
-        request.source(builder);
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
-        }
     }
 
     // 7. 范围查询
     @Test
     public void testQuery7() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-        SearchSourceBuilder builder = new SearchSourceBuilder();
-        RangeQueryBuilder rangeQuery = QueryBuilders.rangeQuery("age");
-
-        rangeQuery.gte(30);
-        rangeQuery.lt(50);
-
-        builder.query(rangeQuery);
-        request.source(builder);
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
-        }
     }
 
     // 8. 模糊查询
     @Test
     public void testQuery8() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-
-        SearchSourceBuilder builder = new SearchSourceBuilder();
-        builder.query(QueryBuilders.fuzzyQuery("name", "wangwu").fuzziness(Fuzziness.TWO));
-
-        request.source(builder);
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
-        }
     }
 
     // 9. 高亮查询
     @Test
     public void testQuery9() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-
-        SearchSourceBuilder builder = new SearchSourceBuilder();
-        TermsQueryBuilder termsQueryBuilder = QueryBuilders.termsQuery("name", "zhangsan");
-
-        HighlightBuilder highlightBuilder = new HighlightBuilder();
-        highlightBuilder.preTags("<font color='red'>");
-        highlightBuilder.postTags("</font>");
-        highlightBuilder.field("name");
-
-        builder.highlighter(highlightBuilder);
-        builder.query(termsQueryBuilder);
-
-        request.source(builder);
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
-        }
     }
 
     // 10. 聚合查询
     @Test
     public void testQuery10() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-
-        SearchSourceBuilder builder = new SearchSourceBuilder();
-
-        AggregationBuilder aggregationBuilder = AggregationBuilders.max("maxAge").field("age");
-        builder.aggregation(aggregationBuilder);
-
-        request.source(builder);
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
-        }
     }
 
     // 11. 分组查询
     @Test
     public void testQuery11() throws IOException {
-        SearchRequest request = new SearchRequest();
-        request.indices("user");
-
-        SearchSourceBuilder builder = new SearchSourceBuilder();
-
-        AggregationBuilder aggregationBuilder = AggregationBuilders.terms("ageGroup").field("age");
-        builder.aggregation(aggregationBuilder);
-
-        request.source(builder);
-        SearchResponse response = esClient.search(request, RequestOptions.DEFAULT);
-
-        SearchHits hits = response.getHits();
-
-        System.out.println(hits.getTotalHits());
-        System.out.println(response.getTook());
-
-        for (SearchHit hit : hits) {
-            System.out.println(hit.getSourceAsString());
-        }
-        esClient.close();
     }
 }

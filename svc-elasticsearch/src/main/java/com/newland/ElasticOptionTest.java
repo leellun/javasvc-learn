@@ -1,42 +1,52 @@
 package com.newland;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.http.HttpHost;
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.delete.DeleteResponse;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.index.IndexResponse;
-import org.elasticsearch.action.support.master.AcknowledgedResponse;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.action.update.UpdateResponse;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.client.indices.CreateIndexRequest;
-import org.elasticsearch.client.indices.CreateIndexResponse;
-import org.elasticsearch.client.indices.GetIndexRequest;
-import org.elasticsearch.client.indices.GetIndexResponse;
-import org.elasticsearch.common.xcontent.XContentType;
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.AcknowledgedResponse;
+import co.elastic.clients.elasticsearch.core.*;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.bulk.CreateOperation;
+import co.elastic.clients.elasticsearch.core.bulk.DeleteOperation;
+import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.elasticsearch.indices.*;
+import com.newland.bean.User;
+import com.newland.utils.ElasticsearchClientUtils;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-public class ElasticOptionTest {
-    private RestHighLevelClient esClient;
+public class ElasticOptionTest{
+    private ElasticsearchClient client= ElasticsearchClientUtils.getClient();
 
-    {
-        // 创建ES客户端
-        esClient = new RestHighLevelClient(RestClient.builder(new HttpHost("192.168.10.103", 9200, "http")));
+    @Test
+    public void createType() throws IOException {
+        CreateIndexResponse createResponse = client.indices().create(
+                new CreateIndexRequest.Builder()
+                        .index("users")
+                        .aliases("name",
+                                new Alias.Builder().isWriteIndex(true).build()
+                        ).aliases("age", new Alias.Builder().isHidden(true).build())
+                        .aliases("sex", new Alias.Builder().isHidden(true).build())
+                        .build()
+        );
+        System.out.println(createResponse);
     }
 
     @Test
-    public void testClient() throws IOException {
-        esClient.close();
+    public void test() throws IOException {
+        SearchResponse<User> search = client.search(s -> s
+                        .index("users")
+                        .query(q -> q
+                                .term(t -> t
+                                        .field("name")
+                                        .value(v -> v.stringValue("zhangsan"))
+                                )),
+                User.class);
+
+        for (Hit<User> hit : search.hits().hits()) {
+            System.out.println(hit.source());
+        }
     }
 
     /**
@@ -44,23 +54,15 @@ public class ElasticOptionTest {
      */
     @Test
     public void testDocInsert() throws IOException {
-        // 插入数据
-        IndexRequest request = new IndexRequest();
-        request.index("user").id("1001");
-
         com.newland.bean.User user = new com.newland.bean.User();
         user.setName("zhangsan");
         user.setAge(30);
         user.setSex("男");
+        // 插入数据
+        IndexRequest request = new IndexRequest.Builder<User>().index("users").id("1001").document(user).build();
 
-        // 向ES插入数据，必须将数据转换位JSON格式
-        ObjectMapper mapper = new ObjectMapper();
-        String userJson = mapper.writeValueAsString(user);
-        request.source(userJson, XContentType.JSON);
-
-        IndexResponse response = esClient.index(request, RequestOptions.DEFAULT);
-        System.out.println(response.getResult());
-        esClient.close();
+        IndexResponse response = client.index(request);
+        System.out.println(response.result());
     }
 
     /**
@@ -68,22 +70,15 @@ public class ElasticOptionTest {
      */
     @Test
     public void testDocInsertBatch() throws IOException {
+        List<BulkOperation> bulkOperationList = new ArrayList<>();
+        bulkOperationList.add(new BulkOperation.Builder().create(
+                new CreateOperation.Builder<User>().index("users").id("1001")
+                        .document(new User("zhangsan", "男", 30)).build()).build());
         // 批量插入数据
-        BulkRequest request = new BulkRequest();
-        request.add(new IndexRequest().index("user").id("1001").source(XContentType.JSON, "name", "zhangsan", "age", 30, "sex", "男"));
-        request.add(new IndexRequest().index("user").id("1002").source(XContentType.JSON, "name", "lisi", "age", 30, "sex", "女"));
-        request.add(new IndexRequest().index("user").id("1003").source(XContentType.JSON, "name", "wangwu", "age", 40, "sex", "男"));
-        request.add(new IndexRequest().index("user").id("1004").source(XContentType.JSON, "name", "wangwu1", "age", 40, "sex", "女"));
-        request.add(new IndexRequest().index("user").id("1005").source(XContentType.JSON, "name", "wangwu2", "age", 50, "sex", "男"));
-        request.add(new IndexRequest().index("user").id("1006").source(XContentType.JSON, "name", "wangwu3", "age", 50, "sex", "男"));
-        request.add(new IndexRequest().index("user").id("1007").source(XContentType.JSON, "name", "wangwu44", "age", 60, "sex", "男"));
-        request.add(new IndexRequest().index("user").id("1008").source(XContentType.JSON, "name", "wangwu555", "age", 60, "sex", "男"));
-        request.add(new IndexRequest().index("user").id("1009").source(XContentType.JSON, "name", "wangwu66666", "age", 60, "sex", "男"));
+        co.elastic.clients.elasticsearch.core.BulkRequest request = new co.elastic.clients.elasticsearch.core.BulkRequest.Builder().index("users").operations(bulkOperationList).build();
 
-        BulkResponse response = esClient.bulk(request, RequestOptions.DEFAULT);
-        System.out.println(response.getTook());
-        System.out.println(response.getItems());
-        esClient.close();
+        BulkResponse response = client.bulk(request);
+        System.out.println(response.items());
     }
 
     /**
@@ -92,11 +87,9 @@ public class ElasticOptionTest {
     @Test
     public void testDocGet() throws IOException {
         // 查询数据
-        GetRequest request = new GetRequest();
-        request.index("user").id("1001");
-        GetResponse response = esClient.get(request, RequestOptions.DEFAULT);
-        System.out.println(response.getSourceAsString());
-        esClient.close();
+        GetRequest request = new GetRequest.Builder().index("users").id("1001").build();
+        GetResponse response = client.get(request, User.class);
+        System.out.println(response.source());
     }
 
     /**
@@ -104,12 +97,9 @@ public class ElasticOptionTest {
      */
     @Test
     public void testDocDelete() throws IOException {
-        DeleteRequest request = new DeleteRequest();
-        request.index("user").id("1001");
-
-        DeleteResponse response = esClient.delete(request, RequestOptions.DEFAULT);
+        DeleteRequest request = new DeleteRequest.Builder().index("users").id("1001").build();
+        DeleteResponse response = client.delete(request);
         System.out.println(response.toString());
-        esClient.close();
     }
 
     /**
@@ -117,17 +107,12 @@ public class ElasticOptionTest {
      */
     @Test
     public void testDocDeleteBatch() throws IOException {
+        List<BulkOperation> bulkOperationList = new ArrayList<>();
+        bulkOperationList.add(new BulkOperation.Builder().delete(
+                new DeleteOperation.Builder().index("users").id("1001").build()).build());
         // 批量删除数据
-        BulkRequest request = new BulkRequest();
-
-        request.add(new DeleteRequest().index("user").id("1001"));
-        request.add(new DeleteRequest().index("user").id("1002"));
-        request.add(new DeleteRequest().index("user").id("1003"));
-
-        BulkResponse response = esClient.bulk(request, RequestOptions.DEFAULT);
-        System.out.println(response.getTook());
-        System.out.println(response.getItems());
-        esClient.close();
+        co.elastic.clients.elasticsearch.core.BulkRequest request = new co.elastic.clients.elasticsearch.core.BulkRequest.Builder().operations(bulkOperationList).build();
+        BulkResponse response = client.bulk(request);
     }
 
     /**
@@ -136,16 +121,9 @@ public class ElasticOptionTest {
     @Test
     public void testDocUpdate() throws IOException {
         // 修改数据
-        UpdateRequest request = new UpdateRequest();
-        request.index("user").id("1001");
-        request.doc(XContentType.JSON, "sex", "女");
+        UpdateRequest request = new UpdateRequest.Builder().index("users").id("1001").doc(new User("1001", "男", 1)).build();
 
-        UpdateResponse response = esClient.update(request, RequestOptions.DEFAULT);
-
-        System.out.println(response.getResult());
-
-        esClient.close();
-        esClient.close();
+        UpdateResponse response = client.update(request, User.class);
     }
 
     /**
@@ -154,14 +132,12 @@ public class ElasticOptionTest {
     @Test
     public void testIndexCreate() throws IOException {
         // 创建索引
-        CreateIndexRequest request = new CreateIndexRequest("user");
-        CreateIndexResponse createIndexResponse = esClient.indices().create(request, RequestOptions.DEFAULT);
+        CreateIndexRequest request = new CreateIndexRequest.Builder().index("user2").build();
+        CreateIndexResponse createIndexResponse = client.indices().create(request);
 
         // 响应状态
-        boolean acknowledged = createIndexResponse.isAcknowledged();
+        boolean acknowledged = createIndexResponse.acknowledged();
         System.out.println("索引操作 ：" + acknowledged);
-
-        esClient.close();
     }
 
     /**
@@ -170,16 +146,12 @@ public class ElasticOptionTest {
     @Test
     public void testIndexSearch() throws IOException {
         // 查询索引
-        GetIndexRequest request = new GetIndexRequest("user");
+        GetIndexRequest request = new GetIndexRequest.Builder().index("user").build();
 
-        GetIndexResponse getIndexResponse = esClient.indices().get(request, RequestOptions.DEFAULT);
+        GetIndexResponse getIndexResponse = client.indices().get(request);
 
         // 响应状态
-        System.out.println(getIndexResponse.getAliases());
-        System.out.println(getIndexResponse.getMappings());
-        System.out.println(getIndexResponse.getSettings());
-
-        esClient.close();
+        System.out.println(getIndexResponse);
     }
 
     /**
@@ -188,11 +160,9 @@ public class ElasticOptionTest {
     @Test
     public void testIndexDelete() throws IOException {
         // 查询索引
-        DeleteIndexRequest request = new DeleteIndexRequest("user");
-        AcknowledgedResponse response = esClient.indices().delete(request, RequestOptions.DEFAULT);
+        DeleteIndexRequest request = new DeleteIndexRequest.Builder().index("user").build();
+        AcknowledgedResponse response = client.indices().delete(request);
         // 响应状态
-        System.out.println(response.isAcknowledged());
-
-        esClient.close();
+        System.out.println(response.acknowledged());
     }
 }
