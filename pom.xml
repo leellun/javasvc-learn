@@ -24,6 +24,7 @@
         <module>svc-canal</module>
         <module>svc-classloader</module>
         <module>svc-java-trait</module>
+        <module>svc-designmode</module>
     </modules>
     <dependencyManagement>
         <dependencies>

@@ -34,3 +34,14 @@ switch(ss){
 （4）新引入的jlink可以精简化jdk的大小，外加Alpine Linux的docker镜像，可以大大减少java应用的docker镜像大小，
 同时也支持了Docker的cpu和memory限制(Java SE 8u131及以上版本开始支持)。
 
+## java11
+ZGC垃圾回收器
+据说这是JDK11最为瞩目的特性，没有之一，是最重磅的升级，那么ZGC的优势在哪里呢？
+
+GC暂停时间不会超过10毫秒
+既能处理几百兆的小堆，也能处理几个T的大堆
+和G1相比，应用吞吐能力不会下降超过15%
+为未来的GC功能和利用colord指针以及Load barriers优化奠定了基础
+ZGC是一个并发、基于region、压缩型的垃圾收集器，只有root扫描阶段会STW(strop the world，停止所有线程)，
+因此ZGC的停顿时间不会随着堆的增长和存活对象的增长而变长。用法：-XX:UnlockExperimentalVMOptions 
+-XX:+UseZGC虽然功能如此强大，但很遗憾的是，在Windows系统的JDK中并没有提供ZGC，所以也就没有办法测试了
