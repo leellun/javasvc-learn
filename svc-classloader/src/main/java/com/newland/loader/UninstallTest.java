@@ -13,12 +13,15 @@ public class UninstallTest {
     public static void main(String[] args) {
         while (true) {
             try {
+//                HelloWorld helloWorld=new HelloWorld();
+//                helloWorld.say();
                 System.out.println(UninstallTest.class.getClassLoader());
                 MyClassLoader loader = new MyClassLoader("D:/classes");
-                Class cls = loader.findClass("com.newland.test.HelloWorld");
+                Class cls = loader.loadClass("com.newland.test.HelloWorld");
                 Object demo = cls.getDeclaredConstructor().newInstance();
                 Method m = demo.getClass().getMethod("say");
                 m.invoke(demo);
+
                 Thread.sleep(10000);
             } catch (Exception e) {
                 System.out.println("not find");
