@@ -25,6 +25,7 @@
         <module>svc-classloader</module>
         <module>svc-java-trait</module>
         <module>svc-designmode</module>
+        <module>java-concurrence</module>
     </modules>
     <dependencyManagement>
         <dependencies>
