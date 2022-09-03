@@ -27,6 +27,7 @@
         <module>svc-designmode</module>
         <module>java-concurrence</module>
         <module>java-spring</module>
+        <module>java-annotation</module>
     </modules>
     <dependencyManagement>
         <dependencies>
