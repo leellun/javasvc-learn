@@ -20,7 +20,7 @@ public class BeanMethodInterceptor implements MethodInterceptor {
     }
 
     public boolean isMatch(Method candidateMethod) {
-        if (candidateMethod.getName().contains("Name")) {
+        if (candidateMethod.getName().contains("Name")||candidateMethod.getName().contains("Age")) {
             return true;
         }
         return false;
