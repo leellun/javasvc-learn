@@ -18,6 +18,7 @@ public class LogAspects2Test {
         Calculator calculator=(Calculator) mathCalculator;
         System.out.println(calculator.getString());
         applicationContext.close();
+
     }
     @Test
     public void test01(){

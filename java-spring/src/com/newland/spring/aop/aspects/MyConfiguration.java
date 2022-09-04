@@ -9,4 +9,5 @@ import java.lang.annotation.*;
 @Configuration
 @MyAnnotation
 public @interface MyConfiguration {
+
 }

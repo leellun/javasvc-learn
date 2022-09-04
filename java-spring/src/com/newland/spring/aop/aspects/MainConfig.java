@@ -1,5 +1,6 @@
 package com.newland.spring.aop.aspects;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
