@@ -26,7 +26,7 @@ public class PersonEnhancer {
         enhancer.setCallbackFilter(new CallbackFilter() {
             @Override
             public int accept(Method method) {
-                System.out.println(method.getName());
+//                System.out.println(method.getName());
                 if (beanMethodInterceptor.isMatch(method)) {
                     return 0;
                 } else {
@@ -42,7 +42,8 @@ public class PersonEnhancer {
 //        enhancer.setCallbacks(new Callback[]{new BeanMethodInterceptor(),NoOp.INSTANCE});
         enhancer.setCallbackTypes(new Class[]{BeanMethodInterceptor.class, NoOp.class});
         try {
-            Enhancer.registerStaticCallbacks(enhancer.createClass(), new Callback[]{new BeanMethodInterceptor(), NoOp.INSTANCE});
+            Enhancer.registerStaticCallbacks(enhancer.createClass(), new Callback[]{new BeanMethodInterceptor(new Person()), NoOp.INSTANCE});
+//            Enhancer.registerStaticCallbacks(enhancer.createClass(), new Callback[]{new BeanMethodInterceptor(), NoOp.INSTANCE});
             Person proxy = (Person) enhancer.createClass().getConstructor().newInstance();
             return (Person) proxy;
         } catch (Exception e) {
