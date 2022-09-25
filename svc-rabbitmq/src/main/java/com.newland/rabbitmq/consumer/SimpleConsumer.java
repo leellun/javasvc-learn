@@ -9,7 +9,7 @@ import java.io.IOException;
  *  生产者——消息队列 ——消费者
  */
 public class SimpleConsumer {
-    public static final String QUEUE_NAME = "sdfsdfsdfssf1";
+    public static final String QUEUE_NAME = "mirror_qqq";
 
     public static void main(String[] args) throws Exception {
         Connection connection = RabbitMQConnectionUtil.getConnection();
@@ -20,5 +20,6 @@ public class SimpleConsumer {
                 System.out.println("message receive:" + new String(body));
             }
         });
+        Thread.sleep(20000);
     }
 }

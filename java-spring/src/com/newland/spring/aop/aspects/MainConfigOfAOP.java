@@ -25,4 +25,8 @@ public class MainConfigOfAOP {
     public LogAspects logAspects(){
         return new LogAspects();
     }
+    @Bean
+    public LogAspects22 logAspects22(){
+        return new LogAspects22();
+    }
 }

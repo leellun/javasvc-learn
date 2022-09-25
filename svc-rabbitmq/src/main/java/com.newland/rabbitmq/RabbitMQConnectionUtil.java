@@ -13,13 +13,14 @@ public class RabbitMQConnectionUtil {
         ConnectionFactory factory = new ConnectionFactory();
         factory.setUsername("leellun");
         factory.setPassword("123456");
-        factory.setVirtualHost("/test_vhost");
+        factory.setVirtualHost("test_vhost2");
         factory.setHost("192.168.66.11");
         factory.setPort(5672);
         try {
             Connection connection = factory.newConnection("app:audit component:event-consumer");
             return connection;
         } catch (Exception e) {
+            e.printStackTrace();
             return null;
         }
     }

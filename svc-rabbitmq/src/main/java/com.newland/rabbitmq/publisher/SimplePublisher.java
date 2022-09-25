@@ -9,7 +9,7 @@ import com.rabbitmq.client.Connection;
  * 生产者——消息队列 ——消费者
  */
 public class SimplePublisher {
-    public static final String QUEUE_NAME = "sdfsdfsdfssf1";
+    public static final String QUEUE_NAME = "mirror_qqq";
 
     public static void main(String[] args) throws Exception {
         Connection connection = RabbitMQConnectionUtil.getConnection();
