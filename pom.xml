@@ -28,6 +28,7 @@
         <module>java-concurrence</module>
         <module>java-spring</module>
         <module>java-annotation</module>
+        <module>svc-delaytask</module>
     </modules>
     <dependencyManagement>
         <dependencies>
@@ -128,6 +129,16 @@
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-aspects</artifactId>
                 <version>5.2.9.RELEASE</version>
+            </dependency>
+            <dependency>
+                <groupId>org.quartz-scheduler</groupId>
+                <artifactId>quartz</artifactId>
+                <version>2.2.2</version>
+            </dependency>
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-all</artifactId>
+                <version>4.1.24.Final</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
